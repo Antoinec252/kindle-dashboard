@@ -8,6 +8,7 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+from citations import citation_du_jour
 from saints import fete
 
 # ---------- Réglages ----------
@@ -21,6 +22,9 @@ TRASH_CYCLE = ["jaune", "grise"]
 BIRTHDAYS = os.environ.get("BIRTHDAYS", "")
 OUT = os.environ.get("OUT", "output/dashboard.png")
 MOCK = "--mock" in sys.argv
+# Affichage du matin (Tempo centré + citation) pour les images fabriquées avant cette heure.
+# La Kindle les affiche à 7 h 10 ; celle de 12 h 10 est toujours en affichage complet.
+HEURE_FIN_MATIN = 11
 
 MOIS_COURT = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
 JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
@@ -199,13 +203,18 @@ TEMPO_BOX = {
 }
 
 
-def tempo_box(titre, couleur, attente=False):
+def tempo_box(titre, couleur, attente=False, grand=False):
     box, lab, mot = TEMPO_BOX[couleur]
+    taille_mot = 84 if grand else 64
+    centre = ""
+    if grand:
+        lab = lab.replace("align-self:flex-start", "align-self:center")
+        centre = ";align-items:center;text-align:center"
     if couleur is None and attente:
         mot = '<span style="font-size:34px">Connu vers 11 h</span>'
-    return (f'<div style="{box};display:flex;flex-direction:column;gap:6px">'
+    return (f'<div style="{box};display:flex;flex-direction:column;gap:6px{centre}">'
             f'<div style="font-size:18px;font-weight:500;{lab}">{titre}</div>'
-            f'<div style="font-family:Literata,Georgia,serif;font-size:64px;font-weight:700;line-height:1;{lab}">{mot}</div></div>')
+            f'<div style="font-family:Literata,Georgia,serif;font-size:{taille_mot}px;font-weight:700;line-height:1;{lab}">{mot}</div></div>')
 
 
 def build_html(now, d):
@@ -241,33 +250,22 @@ def build_html(now, d):
                     + "".join(f"<div>{x}</div>" for x in bas) + "</div>")
 
     t = d["tempo"]
-    return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>body{{margin:0;background:#f2f2ef}}</style></head><body>
-<div style="width:758px;height:1024px;box-sizing:border-box;background:#f2f2ef;color:#111;font-family:Inter,sans-serif;padding:40px 48px 22px;display:flex;flex-direction:column;justify-content:space-between">
-
-<div style="display:flex;flex-direction:column;gap:14px">
- <div style="display:flex;justify-content:space-between;align-items:center">
-  <div style="display:flex;align-items:center;gap:22px">
-   <div style="font-family:Literata,Georgia,serif;font-size:150px;font-weight:700;line-height:.85;letter-spacing:-3px">{today.day}</div>
-   <div style="display:flex;flex-direction:column;gap:6px">
-    <div style="font-family:Literata,Georgia,serif;font-size:46px;font-weight:600;line-height:1">{JOURS[today.weekday()].capitalize()}</div>
-    <div style="font-family:Literata,Georgia,serif;font-size:46px;font-weight:600;line-height:1">{MOIS[today.month-1].capitalize()}</div>
-   </div>
-  </div>
-  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-   <div style="display:flex;align-items:center;gap:10px">{icon(wtype(cur["weather_code"]), 60)}
-    <div style="font-family:Literata,Georgia,serif;font-size:72px;font-weight:700;line-height:1">{round(cur["temperature_2m"])}°</div></div>
-   <div style="font-size:20px;text-align:right">{WLABEL.get(cur["weather_code"], "")} · {round(daily["temperature_2m_min"][0])}° / {round(daily["temperature_2m_max"][0])}°</div>
-  </div>
- </div>
- <div style="font-family:Literata,Georgia,serif;font-size:28px;font-weight:600">{fete(today)}</div>
- {poub}
+    if now.hour < HEURE_FIN_MATIN or "--matin" in sys.argv:
+        texte, auteur = citation_du_jour(today)
+        taille = 46 if len(texte) <= 70 else 40 if len(texte) <= 110 else 34
+        milieu = f"""<div style="display:flex;justify-content:center">
+ <div style="width:62%;display:grid">{tempo_box("Tempo aujourd'hui", t["today"], grand=True)}</div>
 </div>
 
-<div style="height:3px;background:#111"></div>
+<div style="height:2px;background:#111"></div>
 
-<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px">
+<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:18px;padding:10px 20px;text-align:center">
+ <div style="font-family:Literata,Georgia,serif;font-style:italic;font-size:{taille}px;line-height:1.3">« {texte} »</div>
+ <div style="font-size:22px;font-weight:600;color:#222">{auteur}</div>
+</div>
+"""
+    else:
+        milieu = f"""<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px">
  {tempo_box("Tempo aujourd'hui", t["today"])}
  {tempo_box("Tempo demain", t["tomorrow"], attente=now.hour < 12)}
 </div>
@@ -292,6 +290,35 @@ def build_html(now, d):
   <div style="font-family:Literata,Georgia,serif;font-size:{34 if (d["air"] or "—") in ("Bon", "Moyen", "—") else 24}px;font-weight:700;line-height:1.2">{d["air"] or "—"}</div>
  </div>
 </div>
+"""
+
+    return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>body{{margin:0;background:#f2f2ef}}</style></head><body>
+<div style="width:758px;height:1024px;box-sizing:border-box;background:#f2f2ef;color:#111;font-family:Inter,sans-serif;padding:40px 48px 22px;display:flex;flex-direction:column;justify-content:space-between;gap:20px">
+
+<div style="display:flex;flex-direction:column;gap:14px">
+ <div style="display:flex;justify-content:space-between;align-items:center">
+  <div style="display:flex;align-items:center;gap:22px">
+   <div style="font-family:Literata,Georgia,serif;font-size:150px;font-weight:700;line-height:.85;letter-spacing:-3px">{today.day}</div>
+   <div style="display:flex;flex-direction:column;gap:6px">
+    <div style="font-family:Literata,Georgia,serif;font-size:46px;font-weight:600;line-height:1">{JOURS[today.weekday()].capitalize()}</div>
+    <div style="font-family:Literata,Georgia,serif;font-size:46px;font-weight:600;line-height:1">{MOIS[today.month-1].capitalize()}</div>
+   </div>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+   <div style="display:flex;align-items:center;gap:10px">{icon(wtype(cur["weather_code"]), 60)}
+    <div style="font-family:Literata,Georgia,serif;font-size:72px;font-weight:700;line-height:1">{round(cur["temperature_2m"])}°</div></div>
+   <div style="font-size:20px;text-align:right">{WLABEL.get(cur["weather_code"], "")} · {round(daily["temperature_2m_min"][0])}° / {round(daily["temperature_2m_max"][0])}°</div>
+  </div>
+ </div>
+ <div style="font-family:Literata,Georgia,serif;font-size:28px;font-weight:600">{fete(today)}</div>
+ {poub}
+</div>
+
+<div style="height:3px;background:#111"></div>
+
+{milieu}
 
 {bas_html}
 
