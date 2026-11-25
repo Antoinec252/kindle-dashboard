@@ -1,0 +1,43 @@
+name: Ecran Kindle
+
+on:
+  schedule:
+    - cron: "7 4-21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dashboard
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer les outils
+        run: |
+          pip install playwright==1.48.0 pillow==11.0.0
+          python -m playwright install --with-deps chromium
+
+      - name: Fabriquer l'image
+        env:
+          BIRTHDAYS: ${{ secrets.BIRTHDAYS }}
+        run: python render.py
+
+      - name: Publier l'image (branche "output")
+        run: |
+          cd output
+          git init -q
+          git checkout -q -b output
+          git add dashboard.png
+          git -c user.name="kindle-bot" -c user.email="kindle-bot@users.noreply.github.com" commit -q -m "Mise a jour de l'ecran"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" output
