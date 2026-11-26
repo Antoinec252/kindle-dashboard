@@ -181,8 +181,8 @@ def poubelle(now):
 def lune(now):
     ref = datetime(2000, 1, 6, 18, 14, tzinfo=timezone.utc)
     p = ((now.astimezone(timezone.utc) - ref).total_seconds() / 86400 / 29.530588853) % 1
-    noms = ["Nouvelle lune", "Premier croissant", "Premier quartier", "Gibbeuse croissante",
-            "Pleine lune", "Gibbeuse décroissante", "Dernier quartier", "Dernier croissant"]
+    noms = ["Nouvelle lune", "Lune croissante", "Premier quartier", "Lune croissante",
+            "Pleine lune", "Lune décroissante", "Dernier quartier", "Lune décroissante"]
     return p, noms[int((p * 8) + 0.5) % 8]
 
 
@@ -237,7 +237,7 @@ def moon_svg(p, size=40):
         outer = f"M{c},{c-r} A{r},{r} 0 0 0 {c},{c+r}"
         inner = f"A{rx:.2f},{r} 0 0 {0 if k < 0 else 1} {c},{c-r}"
     return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24"><circle cx="{c}" cy="{c}" r="{r}" fill="#111"/>'
-            f'<path d="{outer} {inner} Z" fill="#f2f2ef"/><circle cx="{c}" cy="{c}" r="{r}" fill="none" stroke="#111" stroke-width="1.6"/></svg>')
+            f'<path d="{outer} {inner} Z" fill="#ffffff"/><circle cx="{c}" cy="{c}" r="{r}" fill="none" stroke="#111" stroke-width="1.6"/></svg>')
 
 
 def court(d):
@@ -246,9 +246,9 @@ def court(d):
 
 # ---------- Mise en page ----------
 TEMPO_BOX = {
-    "rouge": ('background:#111;color:#f2f2ef;padding:18px 22px', '', 'ROUGE'),
-    "blanc": ('border:3px solid #111;background:repeating-linear-gradient(135deg,#f2f2ef 0 10px,#c4c4bf 10px 14px);padding:15px 19px',
-              'background:#f2f2ef;align-self:flex-start;padding:0 6px', 'BLANC'),
+    "rouge": ('background:#111;color:#ffffff;padding:18px 22px', '', 'ROUGE'),
+    "blanc": ('border:3px solid #111;background:repeating-linear-gradient(135deg,#ffffff 0 10px,#c4c4bf 10px 14px);padding:15px 19px',
+              'background:#ffffff;align-self:flex-start;padding:0 6px', 'BLANC'),
     "bleu": ('border:3px solid #111;padding:15px 19px', '', 'BLEU'),
     None: ('border:3px dashed #111;padding:15px 19px', '', '—'),
 }
@@ -264,7 +264,7 @@ def tempo_box(titre, couleur, attente=False, grand=False):
     if couleur is None and attente:
         mot = '<span style="font-size:34px">Connu vers 11 h</span>'
     return (f'<div style="{box};display:flex;flex-direction:column;gap:6px{centre}">'
-            f'<div style="font-size:18px;font-weight:500;{lab}">{titre}</div>'
+            f'<div style="font-size:21px;font-weight:500;{lab}">{titre}</div>'
             f'<div style="font-family:Literata,Georgia,serif;font-size:{taille_mot}px;font-weight:700;line-height:1;{lab}">{mot}</div></div>')
 
 
@@ -283,11 +283,11 @@ def build_html(now, d):
         nom = "Demain" if i == 1 else JOURS[dd.weekday()].capitalize()
         sep = "padding-left:24px;border-left:2px solid #111;" if i == 2 else ""
         pluie = daily["precipitation_probability_max"][i]
-        pluie_txt = f'<div style="font-size:17px">Pluie {pluie} %</div>' if pluie is not None and pluie >= 30 else ""
+        pluie_txt = f'<div style="font-size:20px;font-weight:500">Pluie {pluie} %</div>' if pluie is not None and pluie >= 30 else ""
         jours_html.append(
-            f'<div style="display:flex;align-items:center;gap:16px;{sep}">{icon(wtype(daily["weather_code"][i]), 60)}'
-            f'<div style="display:flex;flex-direction:column;gap:2px"><div style="font-size:22px;font-weight:700">{nom}</div>'
-            f'<div style="font-size:28px;font-weight:600">{round(daily["temperature_2m_min"][i])}° / {round(daily["temperature_2m_max"][i])}°</div>{pluie_txt}</div></div>')
+            f'<div style="display:flex;align-items:center;gap:16px;{sep}">{icon(wtype(daily["weather_code"][i]), 76)}'
+            f'<div style="display:flex;flex-direction:column;gap:2px"><div style="font-size:26px;font-weight:700">{nom}</div>'
+            f'<div style="font-size:38px;font-weight:600;line-height:1.15">{round(daily["temperature_2m_min"][i])}° / {round(daily["temperature_2m_max"][i])}°</div>{pluie_txt}</div></div>')
 
     poub = ('<div style="display:flex;align-items:center;gap:10px;font-size:22px;font-weight:600">'
             '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
@@ -297,7 +297,7 @@ def build_html(now, d):
     bas_html = ""
     if bas:
         bas_html = ('<div style="height:2px;background:#111"></div>'
-                    '<div style="display:flex;justify-content:space-between;align-items:baseline;font-size:21px">'
+                    '<div style="display:flex;justify-content:space-between;align-items:baseline;font-size:23px;font-weight:500">'
                     + "".join(f"<div>{x}</div>" for x in bas) + "</div>")
 
     t = d["tempo"]
@@ -327,17 +327,17 @@ def build_html(now, d):
 
 <div style="height:2px;background:#111"></div>
 
-<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr))">
+<div style="display:grid;grid-template-columns:minmax(0,0.95fr) minmax(0,1.45fr) minmax(0,0.8fr)">
  <div style="display:flex;flex-direction:column;gap:4px;padding-right:16px">
-  <div style="font-size:15px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase">Soleil</div>
-  <div style="font-size:22px;font-weight:600">Lever {sr}</div><div style="font-size:22px;font-weight:600">Coucher {ss}</div>
+  <div style="font-size:18px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase">Soleil</div>
+  <div style="font-size:24px;font-weight:600">Lever {sr}</div><div style="font-size:24px;font-weight:600">Coucher {ss}</div>
  </div>
  <div style="display:flex;flex-direction:column;gap:4px;padding:0 16px;border-left:2px solid #111">
-  <div style="font-size:15px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase">Lune</div>
-  <div style="display:flex;align-items:center;gap:10px">{moon_svg(p)}<div style="font-size:20px;font-weight:600;line-height:1.2">{lune_nom}</div></div>
+  <div style="font-size:18px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase">Lune</div>
+  <div style="display:flex;align-items:center;gap:10px">{moon_svg(p, 52)}<div style="font-size:22px;font-weight:600;line-height:1.2;white-space:nowrap">{lune_nom}</div></div>
  </div>
  <div style="display:flex;flex-direction:column;gap:4px;padding-left:16px;border-left:2px solid #111">
-  <div style="font-size:15px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase">Air</div>
+  <div style="font-size:18px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase">Air</div>
   <div style="font-family:Literata,Georgia,serif;font-size:{34 if (d["air"] or "—") in ("Bon", "Moyen", "—") else 24}px;font-weight:700;line-height:1.2">{d["air"] or "—"}</div>
  </div>
 </div>
@@ -345,8 +345,8 @@ def build_html(now, d):
 
     return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>body{{margin:0;background:#f2f2ef}}</style></head><body>
-<div style="width:758px;height:1024px;box-sizing:border-box;background:#f2f2ef;color:#111;font-family:Inter,sans-serif;padding:40px 48px 22px;display:flex;flex-direction:column;justify-content:space-between;gap:20px">
+<style>body{{margin:0;background:#ffffff}}</style></head><body>
+<div style="width:758px;height:1024px;box-sizing:border-box;background:#ffffff;color:#111;font-family:Inter,sans-serif;padding:40px 48px 22px;display:flex;flex-direction:column;justify-content:space-between;gap:20px">
 
 <div style="display:flex;flex-direction:column;gap:14px">
  <div style="display:flex;justify-content:space-between;align-items:center">
@@ -360,7 +360,7 @@ def build_html(now, d):
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
    <div style="display:flex;align-items:center;gap:10px">{icon(wtype(cur["weather_code"]), 60)}
     <div style="font-family:Literata,Georgia,serif;font-size:72px;font-weight:700;line-height:1">{round(cur["temperature_2m"])}°</div></div>
-   <div style="font-size:20px;text-align:right">{"Prévision" if m.get("secours") else WLABEL.get(cur["weather_code"], "")} · {round(daily["temperature_2m_min"][0])}° / {round(daily["temperature_2m_max"][0])}°</div>
+   <div style="font-size:22px;font-weight:500;text-align:right">{"Prévision" if m.get("secours") else WLABEL.get(cur["weather_code"], "")} · {round(daily["temperature_2m_min"][0])}° / {round(daily["temperature_2m_max"][0])}°</div>
   </div>
  </div>
  <div style="font-family:Literata,Georgia,serif;font-size:28px;font-weight:600">{fete(today)}</div>
