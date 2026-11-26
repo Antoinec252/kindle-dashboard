@@ -60,12 +60,54 @@ def tempo():
     return out
 
 
-def meteo():
+METEO_BRUT = None   # dernière météo reçue, rangée dans l'image pour servir de secours
+
+
+def meteo_secours():
+    """Relit la météo rangée dans l'image publiée précédemment (si le site météo ne répond pas)."""
+    import io
+    from PIL import Image
+    repo = os.environ.get("GITHUB_REPOSITORY")
+    if not repo:
+        return None
+    try:
+        req = urllib.request.Request(f"https://raw.githubusercontent.com/{repo}/output/dashboard.png",
+                                     headers={"User-Agent": "kindle-dashboard"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            texte = Image.open(io.BytesIO(r.read())).text.get("meteo")
+        return json.loads(texte) if texte else None
+    except Exception as e:
+        print("Météo de secours indisponible :", e)
+        return None
+
+
+def meteo(today):
+    global METEO_BRUT
     url = ("https://api.open-meteo.com/v1/forecast"
            f"?latitude={LAT}&longitude={LON}&current=temperature_2m,weather_code"
            "&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max"
-           "&timezone=Europe%2FParis&forecast_days=3")
-    return get_json(url)
+           "&timezone=Europe%2FParis&forecast_days=4")
+    secours = False
+    try:
+        m = get_json(url)
+        METEO_BRUT = m
+    except Exception as e:
+        print("Site météo injoignable, utilisation de la dernière météo connue :", e)
+        m = meteo_secours()
+        if not m:
+            raise
+        METEO_BRUT = m
+        secours = True
+    # Aligne les prévisions sur aujourd'hui (utile si la météo de secours date d'hier)
+    jours = m["daily"]["time"]
+    i = jours.index(today.isoformat())
+    m = {"current": m["current"], "daily": {k: v[i:] for k, v in m["daily"].items()}}
+    if len(m["daily"]["time"]) < 3:
+        raise RuntimeError("Météo de secours trop ancienne")
+    if secours:   # pas de température "actuelle" fiable : on affiche la prévision du jour
+        m["current"] = {"temperature_2m": m["daily"]["temperature_2m_max"][0], "weather_code": m["daily"]["weather_code"][0]}
+        m["secours"] = True
+    return m
 
 
 def air():
@@ -318,7 +360,7 @@ def build_html(now, d):
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
    <div style="display:flex;align-items:center;gap:10px">{icon(wtype(cur["weather_code"]), 60)}
     <div style="font-family:Literata,Georgia,serif;font-size:72px;font-weight:700;line-height:1">{round(cur["temperature_2m"])}°</div></div>
-   <div style="font-size:20px;text-align:right">{WLABEL.get(cur["weather_code"], "")} · {round(daily["temperature_2m_min"][0])}° / {round(daily["temperature_2m_max"][0])}°</div>
+   <div style="font-size:20px;text-align:right">{"Prévision" if m.get("secours") else WLABEL.get(cur["weather_code"], "")} · {round(daily["temperature_2m_min"][0])}° / {round(daily["temperature_2m_max"][0])}°</div>
   </div>
  </div>
  <div style="font-family:Literata,Georgia,serif;font-size:28px;font-weight:600">{fete(today)}</div>
@@ -348,7 +390,7 @@ def collect(now):
             "tempo": {"today": "rouge", "tomorrow": None}, "air": "Bon", "poubelle": "jaune",
             "vacances": "<strong>Vacances de Noël</strong> dans 24 jours", "anniv": "Anniv. <strong>Mamie</strong> samedi",
         }
-    return {"meteo": meteo(), "tempo": tempo(), "air": air(), "poubelle": poubelle(now),
+    return {"meteo": meteo(today), "tempo": tempo(), "air": air(), "poubelle": poubelle(now),
             "vacances": vacances(today), "anniv": anniversaire(today)}
 
 
@@ -369,7 +411,11 @@ def main():
         page.evaluate("document.fonts.ready")
         page.screenshot(path=OUT)
         b.close()
-    Image.open(OUT).convert("L").resize((1072, 1448), Image.LANCZOS).save(OUT, optimize=True)
+    from PIL.PngImagePlugin import PngInfo
+    info = PngInfo()
+    if METEO_BRUT:
+        info.add_text("meteo", json.dumps(METEO_BRUT))
+    Image.open(OUT).convert("L").resize((1072, 1448), Image.LANCZOS).save(OUT, optimize=True, pnginfo=info)
     print("Image écrite :", OUT)
 
 
