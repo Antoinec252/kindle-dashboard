@@ -32,10 +32,19 @@ MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août
         "septembre", "octobre", "novembre", "décembre"]
 
 
-def get_json(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "kindle-dashboard (usage familial)"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.load(r)
+def get_json(url, essais=3):
+    # Réessaie automatiquement si un site ne répond pas du premier coup
+    import time
+    for i in range(essais):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "kindle-dashboard (usage familial)"})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                return json.load(r)
+        except Exception as e:
+            print(f"Essai {i + 1}/{essais} échoué pour {url.split('?')[0]} : {e}")
+            if i == essais - 1:
+                raise
+            time.sleep(10)
 
 
 # ---------- Données ----------
@@ -353,7 +362,10 @@ def main():
     with sync_playwright() as pw:
         b = pw.chromium.launch()
         page = b.new_page(viewport={"width": 758, "height": 1024}, device_scale_factor=1072 / 758)
-        page.set_content(html, wait_until="networkidle")
+        try:
+            page.set_content(html, wait_until="networkidle", timeout=60000)
+        except Exception as e:  # polices lentes : on continue avec ce qui est chargé
+            print("Chargement de la page incomplet :", e)
         page.evaluate("document.fonts.ready")
         page.screenshot(path=OUT)
         b.close()
